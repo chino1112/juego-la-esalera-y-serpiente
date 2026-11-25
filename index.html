@@ -8,7 +8,11 @@
 *{box-sizing:border-box}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block}
-#hud{position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);display:flex;gap:6px;padding:6px;overflow-x:auto;pointer-events:none;scrollbar-width:none}
+#turn{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 6px);z-index:3;display:none;align-items:center;gap:9px;background:linear-gradient(180deg,rgba(34,50,104,.96),rgba(14,21,46,.96));border:2px solid rgba(252,163,17,.65);border-radius:30px;padding:7px 18px;font-weight:700;font-size:clamp(12px,3.2vw,16px);box-shadow:0 6px 22px rgba(0,0,0,.55),0 0 20px rgba(252,163,17,.25);white-space:nowrap;pointer-events:none;transition:.3s}
+#turn.mine{border-color:#3ecf7a;box-shadow:0 6px 22px rgba(0,0,0,.55),0 0 26px rgba(62,207,122,.55);animation:pulseTurn 1.6s infinite}
+@keyframes pulseTurn{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.04)}}
+#turnDot{width:13px;height:13px;border-radius:50%;box-shadow:0 0 10px currentColor;flex:0 0 auto}
+#hud{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 50px);display:flex;gap:6px;padding:6px;overflow-x:auto;pointer-events:none;scrollbar-width:none}
 #hud::-webkit-scrollbar{display:none}
 .c{flex:0 0 auto;background:var(--glass);backdrop-filter:blur(8px);border:2px solid #888;border-radius:12px;padding:6px 10px;font-size:clamp(10px,2.5vw,14px);line-height:1.3;opacity:.7;transition:.25s;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 .c.on{opacity:1;transform:scale(1.05);box-shadow:0 0 0 2px var(--ac),0 6px 20px rgba(252,163,17,.35)}
@@ -44,11 +48,19 @@ input::placeholder{color:rgba(255,255,255,.45)}
 .cardIcon{font-size:56px;line-height:1;margin:6px 0 10px;filter:drop-shadow(0 6px 12px rgba(0,0,0,.5))}
 .card p{font-size:15px;opacity:.9;margin-bottom:18px}
 #cardOv{background:rgba(4,8,20,.88);backdrop-filter:blur(4px)}
+.cardBar{height:7px;background:rgba(255,255,255,.14);border-radius:5px;overflow:hidden;margin-top:14px}
+.cardBar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#fca311,#e63946);border-radius:5px}
+@keyframes shrink{from{width:100%}to{width:0}}
+.card{position:relative;overflow:hidden}
+.card>*{position:relative;z-index:1}
+.card::after{content:'';position:absolute;inset:-40%;background:conic-gradient(from 0deg,transparent,rgba(252,163,17,.18),transparent 40%);animation:spin 5s linear infinite;pointer-events:none;z-index:0}
+@keyframes spin{to{transform:rotate(360deg)}}
 #mic.on{background:linear-gradient(180deg,#8ef0b0,#3ecf7a);box-shadow:0 3px 0 #1d8a4c}
 #mic.off{background:linear-gradient(180deg,#ff9a9a,#e63946);color:#fff;box-shadow:0 3px 0 #8f1d26}
 #netmsg{font-size:13px;opacity:.8;min-height:18px;color:#ffd166}
 </style></head><body>
 <canvas id="cv"></canvas>
+<div id="turn"><span id="turnDot"></span><span id="turnTxt"></span></div>
 <div id="hud"></div>
 <div id="tools">
   <button id="mic" title="Micrófono" aria-label="Micrófono">🎤</button>
@@ -85,7 +97,8 @@ input::placeholder{color:rgba(255,255,255,.45)}
     <div class="cardIcon" id="cardIcon">💀</div>
     <h2 id="cardTitle"></h2>
     <p id="cardText"></p>
-    <button id="cardOk">Aceptar</button>
+    <div class="cardBar"><i id="cardBar"></i></div>
+    <button id="cardOk" style="margin-top:14px">Aceptar</button>
   </div>
 </div>
 
@@ -106,7 +119,7 @@ const pos=n=>{if(!n)return new T.Vector3(-5.9,.16,5.4);const i=n-1,r=i/10|0,c=r%
 const off=i=>new T.Vector3(Math.cos(i*1.05)*.2,0,Math.sin(i*1.05)*.2);
 
 /* ============ ESTADO ============ */
-let hi=!matchMedia('(pointer:coarse)').matches;
+let hi=true;
 let G={players:[],cur:0,owner:{},lvl:{},busy:true,started:false};
 let pawns=[],foc=null,zoomed=0;
 const net={mode:'local',peer:null,conn:null,room:null,peers:[]};
@@ -119,7 +132,7 @@ const R=new T.WebGLRenderer({canvas:cv,antialias:true,powerPreference:'high-perf
 R.shadowMap.type=T.PCFSoftShadowMap;
 R.outputEncoding=T.sRGBEncoding;
 R.toneMapping=T.ACESFilmicToneMapping;
-R.toneMappingExposure=1.08;
+R.toneMappingExposure=1.16;
 const S=new T.Scene();
 S.fog=new T.FogExp2(0x0a1230,.022);
 const C=new T.PerspectiveCamera(45,1,.1,120);
@@ -201,19 +214,57 @@ for(let n=1;n<=100;n++){
 
 /* números y precios */
 (function(){
-  const k=document.createElement('canvas');k.width=k.height=1024;const x=k.getContext('2d');
+  const k=document.createElement('canvas');k.width=k.height=2048;const x=k.getContext('2d');
   x.textAlign='center';x.textBaseline='middle';
   for(let n=1;n<=100;n++){
-    const p=pos(n),cx=(p.x+5)*102.4,cy=(5-p.z)*102.4;
-    x.fillStyle='#3a3226';x.font='bold 30px Georgia';
-    x.fillText(n,cx,cy-22);
-    if(PR[n]){x.fillStyle='#7a4b00';x.font='bold 21px sans-serif';x.fillText('🏆'+PR[n],cx,cy+24)}
-    if(CARD_TILES.has(n)){x.font='30px sans-serif';x.fillText('💀',cx,cy+22)}
+    const p=pos(n),cx=(p.x+5)*204.8,cy=(5-p.z)*204.8;
+    x.fillStyle='#3a3226';x.font='bold 58px Georgia';
+    x.fillText(n,cx,cy-44);
+    if(PR[n]){x.fillStyle='#7a4b00';x.font='bold 40px sans-serif';x.fillText('🏆'+PR[n],cx,cy+46)}
+    if(CARD_TILES.has(n)){x.font='58px sans-serif';x.fillText('💀',cx,cy+44)}
   }
-  const tx=new T.CanvasTexture(k);tx.anisotropy=8;tx.encoding=T.sRGBEncoding;
+  const tx=new T.CanvasTexture(k);tx.anisotropy=R.capabilities.getMaxAnisotropy();tx.encoding=T.sRGBEncoding;
   const pl=new T.Mesh(new T.PlaneGeometry(10,10),new T.MeshBasicMaterial({map:tx,transparent:true}));
   pl.rotation.x=-Math.PI/2;pl.position.y=.166;S.add(pl);
 })();
+
+/* aro dorado y esquinas */
+const rimMat=new T.MeshStandardMaterial({color:0xd9a521,roughness:.28,metalness:.92,emissive:0x2a1a00});
+[[0,5.42,11.6,.34],[0,-5.42,11.6,.34],[5.42,0,.34,11.6],[-5.42,0,.34,11.6]].forEach(([x,z,w,d])=>{
+  const b=new T.Mesh(new T.BoxGeometry(w,.24,d),rimMat);
+  b.position.set(x,.12,z);b.castShadow=true;b.receiveShadow=true;S.add(b);
+});
+[[-5.42,-5.42],[5.42,-5.42],[-5.42,5.42],[5.42,5.42]].forEach(([x,z])=>{
+  const post=new T.Mesh(new T.CylinderGeometry(.11,.15,.95,14),rimMat);
+  post.position.set(x,.47,z);post.castShadow=true;S.add(post);
+  const orb=new T.Mesh(new T.SphereGeometry(.16,18,14),new T.MeshStandardMaterial({color:0xffd166,emissive:0xffaa33,emissiveIntensity:2}));
+  orb.position.set(x,1.02,z);S.add(orb);
+});
+
+/* trofeo en la meta */
+const trophy=new T.Group();
+const gold=new T.MeshStandardMaterial({color:0xffc300,roughness:.18,metalness:1,emissive:0x553300});
+const cup=new T.Mesh(new T.CylinderGeometry(.23,.12,.32,18),gold);cup.position.y=.22;
+const stem=new T.Mesh(new T.CylinderGeometry(.05,.05,.16,10),gold);stem.position.y=-.02;
+const tbase=new T.Mesh(new T.CylinderGeometry(.17,.21,.08,18),gold);tbase.position.y=-.15;
+trophy.add(cup,stem,tbase);
+trophy.position.set(-4.5,.62,-4.5);trophy.scale.setScalar(.95);S.add(trophy);
+
+/* marcadores de castigo */
+const cardMarks=[];
+CARD_TILES.forEach(n=>{
+  const p=pos(n);
+  const m=new T.Mesh(new T.IcosahedronGeometry(.13,0),new T.MeshStandardMaterial({color:0xb08bd6,emissive:0x7a2fc0,emissiveIntensity:1.6,roughness:.25,metalness:.3}));
+  m.position.set(p.x,.5,p.z);m.castShadow=true;S.add(m);cardMarks.push(m);
+});
+
+/* aro de salida */
+const startRing=new T.Mesh(new T.TorusGeometry(.42,.045,10,40),new T.MeshStandardMaterial({color:0x7bd88f,emissive:0x1f7a3a,emissiveIntensity:1.5,roughness:.3}));
+startRing.rotation.x=-Math.PI/2;startRing.position.set(-4.5,.2,4.5);S.add(startRing);
+
+/* luz central cálida */
+const centerLight=new T.PointLight(0xffd9a0,.85,20,2);
+centerLight.position.set(0,6.5,0);S.add(centerLight);
 
 /* serpientes */
 const SCOL=[0x2d6a4f,0xd00000,0x6a4c93,0xe07a1f,0x0077b6];let si=0;
@@ -286,17 +337,25 @@ const dm=FV.map(v=>{
   const t=new T.CanvasTexture(k);t.encoding=T.sRGBEncoding;
   return new T.MeshStandardMaterial({map:t,roughness:.35,metalness:.1});
 });
-const dice=new T.Mesh(new T.BoxGeometry(.7,.7,.7),dm);
-dice.position.set(0,.55,0);dice.castShadow=true;S.add(dice);
+const DP=new T.Vector3(3.8,.98,6.5);
+const pedMat=new T.MeshStandardMaterial({map:WOOD,roughness:.55,metalness:.15});
+const ped=new T.Mesh(new T.CylinderGeometry(1.05,1.24,.78,44),pedMat);
+ped.position.set(DP.x,.19,DP.z);ped.castShadow=true;ped.receiveShadow=true;S.add(ped);
+const pedTop=new T.Mesh(new T.CylinderGeometry(1.06,1.06,.06,44),new T.MeshStandardMaterial({color:0x1d2d50,roughness:.35,metalness:.5}));
+pedTop.position.set(DP.x,.59,DP.z);S.add(pedTop);
+const pedRing=new T.Mesh(new T.TorusGeometry(1.09,.04,8,52),new T.MeshStandardMaterial({color:0xffc300,emissive:0x6a4400,emissiveIntensity:1.2,roughness:.3,metalness:.9}));
+pedRing.rotation.x=-Math.PI/2;pedRing.position.set(DP.x,.61,DP.z);S.add(pedRing);
+const dice=new T.Mesh(new T.BoxGeometry(.82,.82,.82),dm);
+dice.position.copy(DP);dice.castShadow=true;S.add(dice);
 
 /* cámara */
-let th=.5,ph=.92,rad=16;
+let th=.5,ph=.9,rad=13.5;
 const tg=new T.Vector3(),goal=new T.Vector3();
-const clampR=()=>rad=Math.min(36,Math.max(5,rad));
+const clampR=()=>rad=Math.min(34,Math.max(5,rad));
 function fit(){
   const w=innerWidth,h=innerHeight;
   R.setSize(w,h,false);C.aspect=w/h;C.updateProjectionMatrix();
-  if(!zoomed){rad=Math.max(16,15/Math.min(C.aspect,1.4));clampR()}
+  if(!zoomed){rad=Math.max(13.5,12.5/Math.min(C.aspect,1.4));clampR()}
 }
 addEventListener('resize',fit);
 const ptr=new Map();let pd=0;
@@ -328,7 +387,7 @@ const msg=t=>$('#msg').textContent=t;
 
 function setQ(h){
   hi=h;
-  R.setPixelRatio(Math.min(devicePixelRatio||1,h?2:1.25));
+  R.setPixelRatio(Math.min(devicePixelRatio||1,h?2.5:1.25));
   R.shadowMap.enabled=h;sun.castShadow=h;
   sun.shadow.mapSize.set(h?2048:512,h?2048:512);
   if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}
@@ -397,9 +456,9 @@ async function rollDice(v){
   await tw(1100,t=>{
     q.setFromAxisAngle(ax,Math.pow(1-t,1.5)*16);
     dice.quaternion.copy(q).multiply(qT);
-    dice.position.set(Math.sin(t*5)*.3*(1-t),.47+Math.abs(Math.sin(t*Math.PI*3))*(1-t)*2.6,Math.cos(t*4)*.3*(1-t));
+    dice.position.set(DP.x+Math.sin(t*5)*.3*(1-t),DP.y+Math.abs(Math.sin(t*Math.PI*3))*(1-t)*2.6,DP.z+Math.cos(t*4)*.3*(1-t));
   });
-  dice.position.set(0,.55,0);
+  dice.position.copy(DP);
 }
 
 /* ============ MOVIMIENTOS ============ */
@@ -459,10 +518,12 @@ function showCard(title,text,icon){
   return new Promise(res=>{
     $('#cardTitle').textContent=title;$('#cardText').textContent=text;$('#cardIcon').textContent=icon||'💀';
     $('#cardOv').style.display='flex';
+    const bar=$('#cardBar');
+    bar.style.animation='none';void bar.offsetWidth;bar.style.animation='shrink 4.2s linear forwards';
     let done=false;
     const fin=()=>{if(done)return;done=true;$('#cardOv').style.display='none';$('#cardOk').onclick=null;res()};
     $('#cardOk').onclick=fin;
-    setTimeout(fin,6500);
+    setTimeout(fin,4200);
   });
 }
 
@@ -681,7 +742,20 @@ function applyState(s){
 }
 
 /* ============ INTERFAZ ============ */
+function renderTurn(){
+  const p=G.players[G.cur],t=$('#turn');
+  if(!G.started||!p){t.style.display='none';return}
+  t.style.display='flex';
+  let mine=false;
+  if(net.mode==='client')mine=!!p.peerId&&p.peerId===net.peer.id;
+  else if(net.mode==='host')mine=!p.peerId;
+  $('#turnDot').style.background=HX[p.color];
+  $('#turnDot').style.color=HX[p.color];
+  $('#turnTxt').textContent=mine?'¡Tu turno, '+p.name+'!':'Turno de '+p.name;
+  t.classList.toggle('mine',mine);
+}
 function renderHUD(){
+  renderTurn();
   $('#hud').innerHTML=G.players.map((p,i)=>{
     const props=Object.keys(G.owner).filter(k=>G.owner[k]===i).length;
     return `<div class="c ${i===G.cur?'on':''}" style="border-color:${HX[p.color]}"><b>${p.name}</b><br>🪙${p.coins} · 📍${p.pos} · 🏠${props}${p.skip?' · ⛓️':''}</div>`;
@@ -857,6 +931,10 @@ function loop(t){
     if(c.life<=0){S.remove(c);coins.splice(i,1)}
   }
   for(const n in hs)if(hs[n])hs[n].rotation.y+=dt*.6;
+  trophy.rotation.y+=dt*.9;trophy.position.y=.62+Math.sin(t*.002)*.06;
+  cardMarks.forEach((m,i)=>{m.rotation.y+=dt*1.4;m.position.y=.5+Math.sin(t*.003+i)*.08});
+  pedRing.rotation.z+=dt*.6;
+  startRing.rotation.z+=dt*.8;
   lamps.forEach((l,i)=>{
     const f=.85+Math.sin(t*.003+i*2)*.15;
     l.pl.intensity=1.1*f;l.bulb.material.emissiveIntensity=2.2*f;
