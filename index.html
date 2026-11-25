@@ -4,18 +4,18 @@
 <meta name="theme-color" content="#0a1230">
 <title>Serpientes, Escaleras y Propiedades 3D</title>
 <style>
-:root{--bg:#0a1230;--pan:#16224a;--fg:#fdf6e3;--ac:#d4af37;--glass:rgba(22,34,74,.82)}
+:root{--bg:#0b1410;--pan:#16224a;--fg:#fdf6e3;--ac:#d4af37;--glass:rgba(18,33,27,.86)}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
 canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block}
-#turn{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 6px);z-index:3;display:none;align-items:center;gap:9px;background:linear-gradient(180deg,rgba(34,50,104,.96),rgba(14,21,46,.96));border:2px solid rgba(212,175,55,.65);border-radius:30px;padding:7px 18px;font-weight:700;font-size:clamp(12px,3.2vw,16px);box-shadow:0 6px 22px rgba(0,0,0,.55),0 0 20px rgba(212,175,55,.22);white-space:nowrap;pointer-events:none;transition:.3s}
+#turn{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 6px);z-index:3;display:none;align-items:center;gap:9px;background:linear-gradient(180deg,rgba(26,50,40,.96),rgba(10,20,16,.96));border:2px solid rgba(212,175,55,.65);border-radius:30px;padding:7px 18px;font-weight:700;font-size:clamp(12px,3.2vw,16px);box-shadow:0 6px 22px rgba(0,0,0,.55),0 0 20px rgba(212,175,55,.22);white-space:nowrap;pointer-events:none;transition:.3s}
 #turn.mine{border-color:#3ecf7a;box-shadow:0 6px 22px rgba(0,0,0,.55),0 0 26px rgba(62,207,122,.55);animation:pulseTurn 1.6s infinite}
 @keyframes pulseTurn{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.04)}}
 #turnDot{width:13px;height:13px;border-radius:50%;box-shadow:0 0 10px currentColor;flex:0 0 auto}
 #hud{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 50px);display:flex;gap:6px;padding:6px;overflow-x:auto;pointer-events:none;scrollbar-width:none}
 #hud::-webkit-scrollbar{display:none}
 .c{flex:0 0 auto;background:var(--glass);backdrop-filter:blur(8px);border:2px solid #888;border-radius:12px;padding:6px 10px;font-size:clamp(10px,2.5vw,14px);line-height:1.3;opacity:.7;transition:.25s;box-shadow:0 4px 14px rgba(0,0,0,.35)}
-.c.on{opacity:1;transform:scale(1.05);box-shadow:0 0 0 2px var(--ac),0 6px 20px rgba(212,175,55,.3)}
+.c.on{opacity:1;transform:scale(1.05);background:#1e3a2e;box-shadow:0 0 0 2px var(--ac),0 6px 20px rgba(212,175,55,.3)}
 #bar{position:fixed;left:0;right:0;bottom:env(safe-area-inset-bottom,0px);display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px;pointer-events:none}
 #bar>*{pointer-events:auto}
 #msg{background:var(--glass);backdrop-filter:blur(8px);border-radius:12px;padding:9px 16px;font-size:clamp(13px,3.3vw,17px);text-align:center;max-width:94vw;box-shadow:0 6px 20px rgba(0,0,0,.4)}
@@ -26,7 +26,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
 #opts{display:none;gap:10px;flex-wrap:wrap;justify-content:center}
 #tools{position:fixed;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 96px);display:flex;flex-direction:column;gap:8px;z-index:4}
 #tools button{min-height:44px;width:46px;padding:0;font-size:19px;background:linear-gradient(180deg,#eef2ff,#c9d3ee);box-shadow:0 3px 0 #7d88a8}
-.ov{position:fixed;inset:0;background:radial-gradient(circle at 50% 30%,rgba(30,45,95,.96),rgba(6,10,26,.98));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;text-align:center;z-index:5;overflow-y:auto}
+.ov{position:fixed;inset:0;background:radial-gradient(circle at 50% 30%,rgba(22,46,35,.96),rgba(4,10,7,.98));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;text-align:center;z-index:5;overflow-y:auto}
 .ov h1{margin:0;font-size:clamp(24px,6.4vw,44px);font-family:Georgia,"Palatino Linotype",serif;letter-spacing:.5px;text-shadow:0 4px 18px rgba(0,0,0,.6)}
 .ov h2{margin:0;font-size:clamp(20px,5vw,28px)}
 .ov p{margin:0;max-width:480px;opacity:.85;font-size:14px;line-height:1.5}
@@ -36,7 +36,7 @@ input::placeholder{color:rgba(255,255,255,.45)}
 .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center}
 .row button{padding:12px 20px}
 #np{display:none;gap:8px;flex-wrap:wrap;justify-content:center}
-#np button{padding:10px 18px;background:linear-gradient(180deg,#3b4f8a,#2b3a68);color:var(--fg);box-shadow:0 3px 0 #1a2547}
+#np button{padding:10px 18px;background:linear-gradient(180deg,#2c4a3c,#1e3329);color:var(--fg);box-shadow:0 3px 0 #12211a}
 #np button.s{background:linear-gradient(180deg,#e8cd72,#c9a227);color:#12161f;box-shadow:0 3px 0 #8a6d12}
 #plist{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:460px}
 .pl{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border-radius:30px;padding:6px 14px 6px 6px;font-size:14px}
@@ -111,9 +111,9 @@ const $=s=>document.querySelector(s), T=THREE;
 const SN={16:6,47:26,49:11,56:53,62:19,64:60,87:24,93:73,95:75,98:78};
 const LD={1:38,4:14,9:31,21:42,28:84,36:44,51:67,71:91,80:100};
 const CARD_TILES=new Set([7,13,23,33,43,53,63,73,83,92]);
-const COL=[0x9e2a2b,0x2f6b4f,0x2b4c7e,0xc07a2a,0x6b4a7a,0x2a7a7a];
+const COL=[0x8c2f39,0x274060,0x2f5d46,0xa8763e,0x5c3a5e,0x4a5a6a];
 const NM=['Rojo','Verde','Azul','Naranja','Morado','Turquesa'];
-const HX=['#9e2a2b','#2f6b4f','#2b4c7e','#c07a2a','#6b4a7a','#2a7a7a'];
+const HX=['#8c2f39','#274060','#2f5d46','#a8763e','#5c3a5e','#4a5a6a'];
 const PR={};for(let n=2;n<100;n++)if(n%4==2&&!SN[n]&&!LD[n]&&!CARD_TILES.has(n))PR[n]=20+Math.floor(n/10)*8;
 const pos=n=>{if(!n)return new T.Vector3(-5.9,.16,5.4);const i=n-1,r=i/10|0,c=r%2?9-i%10:i%10;return new T.Vector3(c-4.5,.16,4.5-r)};
 const off=i=>new T.Vector3(Math.cos(i*1.05)*.2,0,Math.sin(i*1.05)*.2);
@@ -135,13 +135,13 @@ R.outputEncoding=T.sRGBEncoding;
 R.toneMapping=T.ACESFilmicToneMapping;
 R.toneMappingExposure=1.16;
 const S=new T.Scene();
-S.fog=new T.FogExp2(0x0d1526,.022);
+S.fog=new T.FogExp2(0x0b1410,.022);
 const C=new T.PerspectiveCamera(45,1,.1,120);
 
 function skyTex(){
   const c=document.createElement('canvas');c.width=4;c.height=256;const x=c.getContext('2d');
   const g=x.createLinearGradient(0,0,0,256);
-  g.addColorStop(0,'#060a12');g.addColorStop(.45,'#101a2e');g.addColorStop(.75,'#232a3d');g.addColorStop(1,'#3a3340');
+  g.addColorStop(0,'#050a08');g.addColorStop(.45,'#0c1a14');g.addColorStop(.75,'#1c2a22');g.addColorStop(1,'#2e3a30');
   x.fillStyle=g;x.fillRect(0,0,4,256);
   const t=new T.CanvasTexture(c);t.encoding=T.sRGBEncoding;return t;
 }
@@ -183,11 +183,11 @@ const fill=new T.DirectionalLight(0x6a8cff,.35);fill.position.set(-8,6,-7);S.add
 })();
 
 /* suelo */
-const ground=new T.Mesh(new T.CircleGeometry(46,64),new T.MeshStandardMaterial({color:0x111a2b,roughness:1}));
+const ground=new T.Mesh(new T.CircleGeometry(46,64),new T.MeshStandardMaterial({color:0x0b1a14,roughness:1}));
 ground.rotation.x=-Math.PI/2;ground.position.y=-1.25;ground.receiveShadow=true;S.add(ground);
 
 /* mesa */
-const table=new T.Mesh(new T.CylinderGeometry(10.2,10.8,1.1,72),new T.MeshStandardMaterial({map:WOOD,roughness:.75,metalness:.05}));
+const table=new T.Mesh(new T.CylinderGeometry(10.2,10.8,1.1,72),new T.MeshStandardMaterial({color:0x14503a,roughness:.96,metalness:0}));
 table.position.y=-.75;table.receiveShadow=true;table.castShadow=true;S.add(table);
 
 /* marco del tablero */
@@ -206,10 +206,10 @@ let gi=0;
 for(let n=1;n<=100;n++){
   const p=pos(n),i=n-1,r=i/10|0,c=r%2?9-i%10:i%10;
   let col=(r+c)%2?0xd3c8b2:0xe9e1d0;
-  if(PR[n])col=0x93aec4;
-  if(CARD_TILES.has(n))col=0x8a6a9e;
-  if(n===1)col=0x6f9c7a;
-  if(n===100)col=0xd4af37;
+  if(PR[n])col=0x8fa8a0;
+  if(CARD_TILES.has(n))col=0x6e3b3b;
+  if(n===1)col=0x3f6b4f;
+  if(n===100)col=0xc9a227;
   dummy.position.set(p.x,.08,p.z);dummy.updateMatrix();
   tileMesh.setMatrixAt(n-1,dummy.matrix);
   tileMesh.setColorAt(n-1,tmpC.setHex(col));
@@ -240,7 +240,7 @@ S.add(tileMesh);S.add(gemMesh);
 })();
 
 /* aro dorado y esquinas */
-const rimMat=new T.MeshStandardMaterial({color:0xc9a227,roughness:.32,metalness:.9,emissive:0x1e1500});
+const rimMat=new T.MeshStandardMaterial({color:0xb08d3a,roughness:.34,metalness:.9,emissive:0x1a1200});
 [[0,5.42,11.6,.34],[0,-5.42,11.6,.34],[5.42,0,.34,11.6],[-5.42,0,.34,11.6]].forEach(([x,z,w,d])=>{
   const b=new T.Mesh(new T.BoxGeometry(w,.24,d),rimMat);
   b.position.set(x,.12,z);b.castShadow=true;b.receiveShadow=true;S.add(b);
@@ -741,7 +741,7 @@ function onClientData(d){
     $('#startBtn').style.display='none';
   }
   if(d.t==='state')applyState(d.s);
-  if(d.t==='dice')rollDice(d.v);
+  if(d.t==='dice')enqueueAnim(()=>rollDice(d.v));
   if(d.t==='anim'){
     if(d.k==='hop')enqueueAnim(()=>hop(d.p,d.n));
     else if(d.k==='climb')enqueueAnim(()=>climb(d.p,d.n));
@@ -837,8 +837,8 @@ async function play(){
   }
   const v=1+Math.random()*6|0;
   msg(`${p.name} lanza el dado…`);
-  await rollDice(v);
   bcast({t:'dice',v});
+  await rollDice(v);
   msg(`${p.name} sacó un ${v}`);
   foc=pawns[G.cur];
   let n=p.pos,dir=1;
