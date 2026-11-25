@@ -76,7 +76,7 @@ input::placeholder{color:rgba(255,255,255,.45)}
   <p id="shareNote" style="font-size:12px;opacity:.75;max-width:440px"></p>
   <div id="plist"></div>
   <button id="startBtn">Empezar partida</button>
-  <p style="font-size:12px;opacity:.6">Activa el micrófono 🎤 para hablar en tiempo real</p>
+  <p style="font-size:12px;opacity:.6">El micrófono se activa solo cuando tú pulses 🎤</p>
 </div>
 
 <div class="ov" id="cardOv" style="display:none">
@@ -109,7 +109,7 @@ const off=i=>new T.Vector3(Math.cos(i*1.05)*.2,0,Math.sin(i*1.05)*.2);
 let hi=!matchMedia('(pointer:coarse)').matches;
 let G={players:[],cur:0,owner:{},lvl:{},busy:true,started:false};
 let pawns=[],foc=null,zoomed=0;
-const net={mode:'local',peer:null,conn:null,room:null};
+const net={mode:'local',peer:null,conn:null,room:null,peers:[]};
 const conns=new Map();
 let askRes=null, micStream=null, muted=false;
 
@@ -478,7 +478,7 @@ function sendTo(id,m){
 function snap(){
   return {
     players:G.players.map(p=>({name:p.name,color:p.color,coins:p.coins,pos:p.pos,peerId:p.peerId,skip:p.skip||0})),
-    cur:G.cur,owner:G.owner,lvl:G.lvl,started:G.started
+    cur:G.cur,owner:G.owner,lvl:G.lvl,started:G.started,busy:G.busy
   };
 }
 function sync(){
@@ -556,7 +556,6 @@ function hostGame(){
     call.answer(micStream||undefined);
     call.on('stream',s=>attachAudio(s,call.peer));
   });
-  startVoice();
   setTimeout(()=>{
     if(!net.ready)$('#netmsg').textContent='No se pudo crear la sala. Revisa tu internet o usa «Jugar aquí» en este dispositivo.';
   },10000);
@@ -642,7 +641,6 @@ function joinGame(code,attempt){
     call.answer(micStream||undefined);
     call.on('stream',s=>attachAudio(s,call.peer));
   });
-  startVoice();
   setTimeout(()=>{
     if(!net.ready&&attempt===0)$('#netmsg').textContent='Aún conectando… si tarda, revisa que el anfitrión siga en la sala.';
   },12000);
@@ -661,12 +659,13 @@ function onClientData(d){
   if(d.t==='card')showCard(d.title,d.text,d.icon);
   if(d.t==='ask')showAsk(d.text,d.opts,v=>{if(net.conn&&net.conn.open)net.conn.send({t:'choice',v})});
   if(d.t==='peers'){
+    net.peers=d.ids;
     d.ids.forEach(id=>{if(net.peer.id>id)callPeer(id)});
   }
 }
 function applyState(s){
   const was=G.started;
-  G.players=s.players;G.cur=s.cur;G.owner=s.owner;G.lvl=s.lvl;G.started=s.started;
+  G.players=s.players;G.cur=s.cur;G.owner=s.owner;G.lvl=s.lvl;G.started=s.started;G.busy=!!s.busy;
   ensurePawns();
   G.players.forEach((p,i)=>{
     if(pawns[i]){
@@ -721,7 +720,7 @@ function ask(text,opts,peerId){
 /* ============ TURNO ============ */
 async function play(){
   if(G.busy||!G.started)return;
-  G.busy=true;updBtn();
+  G.busy=true;sync();
   const p=G.players[G.cur];
   if(!p){G.busy=false;return}
   if(p.skip>0){
@@ -904,8 +903,16 @@ $('#roll').onclick=()=>{
   else play();
 };
 $('#mic').onclick=async()=>{
-  if(!micStream){await startVoice();if(micStream){if(net.mode==='host')conns.forEach((c,id)=>callPeer(id))}}
-  else{
+  if(!micStream){
+    const ok=await startVoice();
+    if(!ok){msg('No se pudo activar el micrófono. Revisa los permisos del navegador.');return}
+    if(net.mode==='host')conns.forEach((c,id)=>callPeer(id));
+    if(net.mode==='client'){
+      if(net.room)callPeer('sepgame-'+net.room);
+      (net.peers||[]).forEach(id=>callPeer(id));
+    }
+    msg('Micrófono activado');
+  }else{
     muted=!muted;
     micStream.getAudioTracks().forEach(t=>t.enabled=!muted);
     $('#mic').className=muted?'off':'on';
