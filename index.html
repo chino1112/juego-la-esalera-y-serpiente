@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#14213d">
+<title>Serpientes, Escaleras y Propiedades 3D</title>
+<style>
+:root{--bg:#14213d;--pan:#1d2d50;--fg:#fdf6e3;--ac:#fca311;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block}
+#hud{position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);display:flex;gap:6px;padding:6px;overflow-x:auto;pointer-events:none}
+.c{flex:0 0 auto;background:rgba(20,33,61,.85);border:3px solid #888;border-radius:10px;padding:5px 9px;font-size:clamp(11px,2.6vw,15px);line-height:1.25;opacity:.75}
+.c.on{opacity:1;background:#26396b;transform:scale(1.04)}
+#bar{position:fixed;left:0;right:0;bottom:env(safe-area-inset-bottom,0px);display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px;pointer-events:none}
+#bar>*{pointer-events:auto}
+#msg{background:rgba(20,33,61,.9);border-radius:10px;padding:8px 14px;font-size:clamp(13px,3.4vw,17px);text-align:center;max-width:94vw}
+button{font:inherit;color:#14213d;background:var(--ac);border:0;border-radius:14px;padding:14px 26px;font-size:clamp(16px,4.2vw,20px);font-weight:700;cursor:pointer;min-height:52px;box-shadow:0 4px 0 #b36f00}
+button:active{transform:translateY(3px);box-shadow:0 1px 0 #b36f00}
+button:disabled{opacity:.45}
+button:focus-visible{outline:3px solid #fff;outline-offset:2px}
+#opts{display:none;gap:10px}
+#tools{position:fixed;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);display:flex;flex-direction:column;gap:8px}
+#tools button{min-height:44px;padding:8px 12px;font-size:18px;background:#e5e5e5;box-shadow:0 3px 0 #999}
+.ov{position:fixed;inset:0;background:rgba(10,18,40,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;text-align:center;z-index:5}
+.ov h1{margin:0;font-size:clamp(26px,7vw,48px);font-family:Georgia,"Palatino Linotype",serif}
+.ov p{margin:0;max-width:460px;opacity:.85;font-size:15px;line-height:1.45}
+#np{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+#np button{padding:10px 18px;background:#33477a;color:var(--fg);box-shadow:none}
+#np button.s{background:var(--ac);color:#14213d}
+
+#room{width:min(520px,94vw);background:rgba(29,45,80,.96);border:1px solid #6479a8;border-radius:18px;padding:14px;display:grid;gap:9px;text-align:left}
+#room input{width:100%;padding:12px;border-radius:10px;border:1px solid #8193b9;background:#101d38;color:white;font-size:16px}
+#room .rrow{display:flex;gap:8px;flex-wrap:wrap}
+#room button{font-size:14px;min-height:42px;padding:9px 13px;box-shadow:none}
+#room small{opacity:.8;line-height:1.4}
+#voice{position:fixed;left:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 95px);z-index:3;display:flex;gap:6px;align-items:center}
+#voice button{min-height:42px;padding:8px 12px;font-size:15px;background:#e5e5e5;box-shadow:0 3px 0 #999}
+#voice span{background:#1d2d50dd;border-radius:10px;padding:8px;font-size:12px}
+#cardpop{position:fixed;inset:0;z-index:8;background:#081226eF;display:none;align-items:center;justify-content:center;padding:18px}
+#cardface{width:min(340px,90vw);min-height:390px;border:3px solid #fca311;border-radius:24px;background:linear-gradient(145deg,#344b7d,#172442 70%);box-shadow:0 20px 70px #000b;padding:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center}
+#cardface .symbol{font-size:70px;filter:drop-shadow(0 5px 8px #0008)}
+#cardface h2{font: bold 26px Georgia,serif;color:#ffd166;margin:0}
+#cardface p{font-size:17px;line-height:1.45;margin:0}
+#cardface button{margin-top:10px}
+@media(max-width:600px){#voice{bottom:calc(env(safe-area-inset-bottom,0px) + 155px)}#tools{bottom:calc(env(safe-area-inset-bottom,0px) + 150px)}#room .rrow button{flex:1}}
+</style></head><body>
+<canvas id="cv"></canvas>
+<div id="hud"></div>
+<div id="tools"><button id="fs" title="Pantalla completa" aria-label="Pantalla completa">⛶</button><button id="ql" title="Calidad" aria-label="Calidad gráfica">✨</button></div>
+<div id="bar"><div id="msg"></div><div id="opts"></div><button id="roll" disabled>🎲 Tirar dado</button></div>
+<div class="ov" id="setup"><h1>Serpientes, Escaleras y Propiedades 3D</h1>
+<p>Llega exacto a la casilla 100. Las escaleras suben y dan monedas, las serpientes bajan y cuestan monedas. Compra casillas con 🏆, cobra alquiler y mejora a casa y hotel. Sacar un 6 repite turno.</p>
+<p>Juega online con tus amigos o practica desde un solo dispositivo.</p>
+<div id="room">
+ <b>🌐 MULTIJUGADOR ONLINE</b>
+ <div class="rrow"><button id="createRoom">＋ Crear sala</button><button id="copyInvite" disabled>🔗 Copiar invitación</button></div>
+ <small id="roomStatus">Crea una sala y comparte el código con tus amigos.</small>
+ <input id="roomCode" placeholder="Código de sala de tu amigo" autocomplete="off">
+ <div class="rrow"><button id="joinRoom">Entrar a una sala</button></div>
+ <small>Máximo 6 jugadores. Para jugar online, todos deben abrir el enlace desde su propio dispositivo.</small>
+</div>
+<p id="localPlayers">¿Cuántos jugadores locales?</p><div id="np"></div><button id="go">Empezar</button>
+<p>Arrastra para girar la cámara, pellizca o usa la rueda para acercar.</p></div>
+<div id="voice"><button id="micBtn" disabled>🎙️ Activar micrófono</button><span id="voiceStatus">Voz: desconectada</span></div>
+<div id="cardpop"><div id="cardface"><div class="symbol" id="cardIcon">🃏</div><h2 id="cardTitle">CARTA DE CASTIGO</h2><p id="cardText"></p><button id="cardOk">Aceptar</button></div></div>
+<div class="ov" id="end" style="display:none"><h1 id="wt"></h1><button onclick="location.reload()">Jugar de nuevo</button></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),T=THREE;
+const SN={16:6,47:26,49:11,56:53,62:19,64:60,87:24,93:73,95:75,98:78},LD={1:38,4:14,9:31,21:42,28:84,36:44,51:67,71:91,80:100};
+const COL=[0xe63946,0x2a9d8f,0x4361ee,0xf4a261,0x9b5de5,0x06d6a0],NM=['Rojo','Verde','Azul','Naranja','Morado','Turquesa'],HX=['#e63946','#2a9d8f','#4361ee','#f4a261','#9b5de5','#06d6a0'];
+const PR={};for(let n=2;n<100;n++)if(n%4==2&&!SN[n]&&!LD[n])PR[n]=20+Math.floor(n/10)*8;
+const pos=n=>{if(!n)return new T.Vector3(-5.7,.1,4.5);const i=n-1,r=i/10|0,c=r%2?9-i%10:i%10;return new T.Vector3(c-4.5,.1,4.5-r)};
+const off=i=>new T.Vector3(Math.cos(i*1.05)*.2,0,Math.sin(i*1.05)*.2);
+let hi=!matchMedia('(pointer:coarse)').matches,np=4,P=[],cur=0,busy=true,owner={},lvl={},hs={},AC,foc=null,zoomed=0;
+const cv=$('#cv'),R=new T.WebGLRenderer({canvas:cv,antialias:true,powerPreference:'high-performance'});
+R.shadowMap.type=T.PCFSoftShadowMap;
+const S=new T.Scene();S.background=new T.Color(0x14213d);S.fog=new T.Fog(0x14213d,26,60);
+const C=new T.PerspectiveCamera(45,1,.1,100);
+S.add(new T.HemisphereLight(0xffffff,0x334466,.75));
+const sun=new T.DirectionalLight(0xfff1d6,.85);sun.position.set(6,12,8);const sc=sun.shadow.camera;sc.left=sc.bottom=-9;sc.right=sc.top=9;sc.far=40;S.add(sun);
+function setQ(h){hi=h;R.setPixelRatio(Math.min(devicePixelRatio||1,h?2:1.25));R.shadowMap.enabled=h;sun.castShadow=h;sun.shadow.mapSize.set(h?2048:512,h?2048:512);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}S.traverse(o=>{if(o.material)o.material.needsUpdate=true});$('#ql').textContent=h?'✨':'🔋';fit()}
+const M=(c,r=.6,m=0)=>new T.MeshStandardMaterial({color:c,roughness:r,metalness:m});
+const mesh=(g,m,p,sh)=>{const o=new T.Mesh(g,m);if(p)o.position.copy(p);if(sh)o.castShadow=true;o.receiveShadow=true;S.add(o);return o};
+// Tablero
+mesh(new T.BoxGeometry(11,.4,11),M(0x5a3b22,.9),new T.Vector3(0,-.15,0));
+const tg_=new T.BoxGeometry(.96,.2,.96);
+for(let n=1;n<=100;n++){const p=pos(n),i=n-1,r=i/10|0,c=r%2?9-i%10:i%10;let col=(r+c)%2?0xcfc6ad:0xe9e2cf;if(PR[n])col=0x8fb8de;if(n==1)col=0x7bd88f;if(n==100)col=0xffd166;const t=mesh(tg_,M(col,.5),new T.Vector3(p.x,0,p.z));
+if(PR[n]){const d=mesh(new T.OctahedronGeometry(.1),M(0xffc300,.3,.6),new T.Vector3(p.x+.3,.28,p.z-.3),true);hs[n]=d}}
+// Numeros
+{const k=document.createElement('canvas');k.width=k.height=1024;const x=k.getContext('2d');x.textBaseline='top';
+for(let n=1;n<=100;n++){const p=pos(n),cx=(p.x+4.5)*102.4,cy=(4.5-p.z)*102.4;x.fillStyle='#2b2b2b';x.font='bold 26px sans-serif';x.fillText(n,cx+7,(9-(4.5-p.z))*102.4+5);if(PR[n]){x.fillStyle='#8a5a00';x.font='bold 20px sans-serif';x.fillText('🏆'+PR[n],cx+10,(9-(4.5-p.z))*102.4+72)}}
+const tx=new T.CanvasTexture(k);tx.anisotropy=4;const pl=new T.Mesh(new T.PlaneGeometry(10,10),new T.MeshBasicMaterial({map:tx,transparent:true}));pl.rotation.x=-Math.PI/2;pl.position.y=.106;S.add(pl)}
+// Serpientes
+const SCOL=[0x2d6a4f,0xd00000,0x6a4c93,0xe07a1f,0x0077b6];let si=0;
+for(const a in SN){const p0=pos(+a),p1=pos(SN[a]),d=p1.clone().sub(p0),pp=new T.Vector3(-d.z,0,d.x).normalize(),pts=[];
+for(let k=0;k<=14;k++){const t=k/14,q=p0.clone().lerp(p1,t);q.addScaledVector(pp,Math.sin(t*Math.PI*3)*.45*Math.sin(Math.min(1,t*1.5)*Math.PI/2+.0));q.y=.2+Math.sin(t*Math.PI*6)*.03;pts.push(q)}
+const col=SCOL[si++%5],m=M(col,.4);mesh(new T.TubeGeometry(new T.CatmullRomCurve3(pts),48,.11,6),m,null,true);
+const h=mesh(new T.SphereGeometry(.2,12,10),m,pts[0].clone().setY(.24),true);h.scale.set(1,.7,1.2);
+for(const s of[-1,1])mesh(new T.SphereGeometry(.045,6,6),M(0xffffff),pts[0].clone().add(new T.Vector3(s*.09,.1,.08)));}
+// Escaleras
+for(const a in LD){const p0=pos(+a).setY(.2),p1=pos(LD[a]).setY(.2),L=p0.distanceTo(p1),g=new T.Group();g.position.copy(p0).lerp(p1,.5);g.lookAt(p1);
+for(const s of[-1,1]){const r=new T.Mesh(new T.BoxGeometry(.07,.09,L),M(0x9c6644,.8));r.position.x=s*.17;r.castShadow=true;g.add(r)}
+for(let z=-L/2+.25;z<L/2;z+=.45){const r=new T.Mesh(new T.BoxGeometry(.36,.05,.07),M(0xddb892,.8));r.position.set(0,-.02,z);g.add(r)}S.add(g)}
+// Dado
+const FV=[1,6,2,5,3,4],FN=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+const dm=FV.map(v=>{const k=document.createElement('canvas');k.width=k.height=128;const x=k.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,128,128);x.strokeStyle='#bbb';x.lineWidth=8;x.strokeRect(0,0,128,128);x.fillStyle='#c1121f';x.font='bold 90px sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(v,64,70);return new T.MeshStandardMaterial({map:new T.CanvasTexture(k),roughness:.4})});
+const dice=new T.Mesh(new T.BoxGeometry(.7,.7,.7),dm);dice.position.set(0,.45,0);dice.castShadow=true;S.add(dice);
+// Camara
+let th=.5,ph=.9,rad=16;const tg=new T.Vector3(),goal=new T.Vector3();
+const clampR=()=>rad=Math.min(34,Math.max(5,rad));
+function fit(){const w=innerWidth,h=innerHeight;R.setSize(w,h,false);C.aspect=w/h;C.updateProjectionMatrix();if(!zoomed){rad=Math.max(16,15/Math.min(C.aspect,1.4));clampR()}}
+addEventListener('resize',fit);
+const ptr=new Map();let pd=0;const pinch=()=>{if(ptr.size<2)return 0;const[a,b]=[...ptr.values()];return Math.hypot(a[0]-b[0],a[1]-b[1])};
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);ptr.set(e.pointerId,[e.clientX,e.clientY]);pd=pinch()});
+cv.addEventListener('pointermove',e=>{const o=ptr.get(e.pointerId);if(!o)return;ptr.set(e.pointerId,[e.clientX,e.clientY]);if(ptr.size==1){th-=(e.clientX-o[0])*.008;ph=Math.min(1.35,Math.max(.4,ph-(e.clientY-o[1])*.006))}else{const d=pinch();if(pd&&d){rad*=pd/d;clampR();zoomed=1}pd=d}});
+['pointerup','pointercancel'].forEach(t=>cv.addEventListener(t,e=>{ptr.delete(e.pointerId);pd=0}));
+cv.addEventListener('wheel',e=>{e.preventDefault();rad*=1+e.deltaY*.001;clampR();zoomed=1},{passive:false});
+// Utilidades
+const tw=(d,f)=>new Promise(r=>{const t0=performance.now();(function s(){const k=Math.min(1,(performance.now()-t0)/d);f(k);k<1?requestAnimationFrame(s):r()})()});
+function snd(f,d=.12,t='sine',v=.07){try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain(),n=AC.currentTime;o.type=t;o.frequency.value=f;g.gain.setValueAtTime(v,n);g.gain.exponentialRampToValueAtTime(.001,n+d);o.connect(g);g.connect(AC.destination);o.start();o.stop(n+d)}catch(e){}}
+const msg=t=>$('#msg').textContent=t;
+function hud(){$('#hud').innerHTML=P.map((p,i)=>`<div class="c ${i==cur?'on':''}" style="border-color:${HX[p.i]}"><b>${NM[p.i]}</b><br>🪙${p.m} · 📍${p.pos} · 🏠${Object.keys(owner).filter(k=>owner[k]==i).length}</div>`).join('')}
+// Monedas
+const coins=[],cg=new T.CylinderGeometry(.07,.07,.02,10),gm=M(0xffc300,.3,.7),rm=M(0xe63946,.5);
+function burst(v,n,bad){n=hi?n:Math.ceil(n/2);for(let i=0;i<n;i++){const c=new T.Mesh(cg,bad?rm:gm);c.position.copy(v).setY(.4);c.v=new T.Vector3((Math.random()-.5)*2.5,3+Math.random()*2.5,(Math.random()-.5)*2.5);c.life=1.3;S.add(c);coins.push(c)}}
+function pay(p,d,at){p.m=Math.max(0,p.m+d);burst(at||p.g.position,Math.min(12,Math.abs(d)/3+3),d<0);snd(d>0?880:200,.15,'triangle');setTimeout(()=>d>0&&snd(1320,.2,'triangle'),110);hud()}
+// Casas
+function build(n,l,o){if(hs[n])S.remove(hs[n]);const g=new T.Group(),p=pos(n),s=l==2?1.5:1;
+g.add(Object.assign(new T.Mesh(new T.BoxGeometry(.24*s,.2*s,.24*s),M(COL[o],.5)),{castShadow:true}));
+const rf=new T.Mesh(new T.ConeGeometry(.22*s,.16*s,4),M(l==2?0xd00000:0x7f5539,.7));rf.position.y=.18*s;rf.rotation.y=Math.PI/4;rf.castShadow=true;g.add(rf);
+g.position.set(p.x+.28,.2*s,p.z-.28);S.add(g);hs[n]=g}
+// Fichas
+function mkPawn(i){const g=new T.Group();const b=new T.Mesh(new T.CylinderGeometry(.08,.17,.36,14),M(COL[i],.35));b.position.y=.18;const h=new T.Mesh(new T.SphereGeometry(.13,16,12),M(COL[i],.3));h.position.y=.48;b.castShadow=h.castShadow=true;g.add(b,h);g.position.copy(pos(0)).add(off(i));S.add(g);return g}
+// Dado
+async function roll(v){const k=FV.indexOf(v),qT=new T.Quaternion().setFromUnitVectors(new T.Vector3(...FN[k]),new T.Vector3(0,1,0)),ax=new T.Vector3(Math.random()-.5,Math.random()-.5,Math.random()-.5).normalize(),q=new T.Quaternion();
+for(let i=0;i<4;i++)setTimeout(()=>snd(200+Math.random()*150,.05,'square',.04),i*230);
+await tw(1100,t=>{q.setFromAxisAngle(ax,Math.pow(1-t,1.5)*16);dice.quaternion.copy(q).multiply(qT);dice.position.set(Math.sin(t*5)*.3*(1-t),.37+Math.abs(Math.sin(t*Math.PI*3))*(1-t)*2.6,Math.cos(t*4)*.3*(1-t))});dice.position.set(0,.45,0)}
+// Movimientos
+async function hop(p,n){const a=p.g.position.clone(),b=pos(n).add(off(p.i));snd(420,.08,'sine',.06);await tw(240,k=>{p.g.position.lerpVectors(a,b,k);p.g.position.y+=Math.sin(k*Math.PI)*.35})}
+async function climb(p,n){const a=p.g.position.clone(),b=pos(n).add(off(p.i));snd(520,.5,'triangle');await tw(1400,k=>{p.g.position.lerpVectors(a,b,k);p.g.position.y+=Math.sin(k*Math.PI)*.9+Math.abs(Math.sin(k*30))*.06})}
+async function slide(p,n){const a=p.g.position.clone(),b=pos(n).add(off(p.i));snd(300,.7,'sawtooth',.05);await tw(1400,k=>{p.g.position.lerpVectors(a,b,k*k*(3-2*k));p.g.position.x+=Math.sin(k*14)*.12*(1-k);p.g.rotation.z=Math.sin(k*18)*.5});p.g.rotation.z=0}
+function ask(t,o){return new Promise(r=>{msg(t);const b=$('#opts');b.innerHTML='';b.style.display='flex';$('#roll').style.display='none';o.forEach((x,i)=>{const e=document.createElement('button');e.textContent=x;e.onclick=()=>{b.style.display='none';$('#roll').style.display='';r(i)};b.appendChild(e)})})}
+
+// Cartas de castigo y eventos especiales
+const punishmentSpaces=new Set([5,12,18,23,30,37,45,52,59,66,74,82,89,96]);
+const punishmentDeck=[
+ {icon:'💸',title:'¡Multa inesperada!',text:'Pagas 25 monedas al banco.',effect:p=>{pay(p,-25)}},
+ {icon:'🐢',title:'¡Tropiezo!',text:'Retrocedes 3 casillas.',effect:async p=>{const n=Math.max(0,p.pos-3);await slide(p,n);p.pos=n}},
+ {icon:'⏳',title:'¡Pierdes el turno!',text:'La suerte no está de tu lado. Pierdes tu próximo turno.',effect:p=>{p.skip=(p.skip||0)+1}},
+ {icon:'🎁',title:'¡Premio sorpresa!',text:'Recibes 30 monedas.',effect:p=>pay(p,30)},
+ {icon:'🏦',title:'Impuesto inmobiliario',text:'Pagas 15 monedas por mantenimiento.',effect:p=>pay(p,-15)},
+ {icon:'🎲',title:'Doble oportunidad',text:'Recibes 10 monedas y vuelves a lanzar en tu siguiente turno.',effect:p=>{pay(p,10);p.bonus=true}},
+ {icon:'🤝',title:'Trato amistoso',text:'El jugador con más monedas te entrega 10 monedas.',effect:p=>{const richest=P.reduce((a,b)=>a.m>b.m?a:b);if(richest!==p){richest.m=Math.max(0,richest.m-10);pay(p,10)}else pay(p,10);hud()}},
+ {icon:'🚨',title:'¡A la cárcel!',text:'Pierdes un turno por una infracción.',effect:p=>{p.skip=(p.skip||0)+1}}
+];
+async function punishment(p,n){
+ if(!punishmentSpaces.has(n))return;
+ const card=punishmentDeck[Math.floor(Math.random()*punishmentDeck.length)];
+ $('#cardIcon').textContent=card.icon;$('#cardTitle').textContent=card.title;$('#cardText').textContent=card.text;
+ $('#cardpop').style.display='flex';
+ await new Promise(resolve=>$('#cardOk').onclick=()=>{ $('#cardpop').style.display='none';resolve()});
+ await card.effect(p);hud();
+}
+// Turno
+async function play(){if(busy)return;busy=true;$('#roll').disabled=true;const p=P[cur];if(p.skip>0){p.skip--;msg(`${NM[p.i]} pierde este turno por una carta de castigo`);cur=(cur+1)%P.length;hud();busy=false;$('#roll').disabled=false;return}const v=1+Math.random()*6|0;
+msg(`${NM[p.i]} lanza el dado…`);await roll(v);msg(`${NM[p.i]} sacó un ${v}`);foc=p;
+let n=p.pos,dir=1;for(let s=0;s<v;s++){if(n==100)dir=-1;n+=dir;await hop(p,n)}p.pos=n;
+if(LD[n]){msg(`¡Escalera! ${NM[p.i]} sube a la ${LD[n]}`);await climb(p,LD[n]);n=p.pos=LD[n];pay(p,20)}
+else if(SN[n]){msg(`¡Serpiente! ${NM[p.i]} baja a la ${SN[n]}`);await slide(p,SN[n]);n=p.pos=SN[n];pay(p,-10)}
+hud();
+if(n==100){foc=null;snd(660,.3);setTimeout(()=>snd(880,.3),250);setTimeout(()=>snd(1100,.5),500);burst(p.g.position,40);$('#wt').textContent=`🏆 ¡Gana ${NM[p.i]} con ${p.m} monedas!`;setTimeout(()=>$('#end').style.display='flex',1800);return}
+await prop(p,n);await punishment(p,n);
+foc=null;const again=v==6;if(!again)cur=(cur+1)%P.length;hud();msg(again?`¡Un 6! ${NM[p.i]} repite turno`:`Turno de ${NM[P[cur].i]}`);busy=false;$('#roll').disabled=online&&isHost&&cur!==0}
+async function prop(p,n){const c=PR[n];if(!c)return;const o=owner[n];
+if(o==null){if(p.m<c){msg(`${NM[p.i]} no tiene monedas para la casilla ${n}`);await tw(900,()=>{});return}
+if(await ask(`${NM[p.i]}: ¿comprar la casilla ${n} por 🪙${c}?`,['Comprar','Pasar'])==0){owner[n]=cur;lvl[n]=1;pay(p,-c,pos(n));build(n,1,p.i);snd(660,.3,'square',.05);msg(`${NM[p.i]} compró la casilla ${n}`);await tw(700,()=>{})}}
+else if(o==cur){const u=Math.ceil(c/2);if(lvl[n]<2&&p.m>=u&&await ask(`¿Mejorar la casilla ${n} a hotel por 🪙${u}?`,['Mejorar','No'])==0){lvl[n]=2;pay(p,-u,pos(n));build(n,2,p.i);msg('¡Hotel construido!');await tw(700,()=>{})}}
+else{const r=Math.min(p.m,Math.ceil(c/4)*lvl[n]*(lvl[n]==2?2:1));msg(`${NM[p.i]} paga 🪙${r} de alquiler a ${NM[P[o].i]}`);P[o].m+=r;pay(p,-r);hud();await tw(1000,()=>{})}}
+// Bucle
+let last=performance.now();
+function loop(t){requestAnimationFrame(loop);const dt=Math.min(.05,(t-last)/1000);last=t;
+if(foc)goal.copy(foc.g.position).multiplyScalar(.55);else goal.set(0,0,0);tg.lerp(goal,Math.min(1,dt*2.5));
+const s=Math.sin(ph);C.position.set(tg.x+rad*s*Math.sin(th),tg.y+rad*Math.cos(ph),tg.z+rad*s*Math.cos(th));C.lookAt(tg);
+for(let i=coins.length-1;i>=0;i--){const c=coins[i];c.v.y-=9.8*dt;c.position.addScaledVector(c.v,dt);c.rotation.x+=dt*9;if(c.position.y<.13&&c.v.y<0){c.position.y=.13;c.v.y*=-.35}c.life-=dt;if(c.life<=0){S.remove(c);coins.splice(i,1)}}
+for(const n in hs)if(hs[n].geometry)hs[n].rotation.y+=dt;
+R.render(S,C)}
+// Interfaz
+const npb=$('#np');for(let i=2;i<=6;i++){const b=document.createElement('button');b.textContent=i;b.className=i==np?'s':'';b.onclick=()=>{np=i;[...npb.children].forEach(x=>x.className=x==b?'s':'')};npb.appendChild(b)}
+$('#go').onclick=()=>{$('#setup').style.display='none';for(let i=0;i<np;i++)P.push({i,m:150,pos:0,g:mkPawn(i)});hud();msg(`Turno de ${NM[0]}`);busy=false;$('#roll').disabled=false;snd(500,.1)};
+$('#roll').onclick=play;
+$('#ql').onclick=()=>setQ(!hi);
+$('#fs').onclick=()=>{const d=document.documentElement;try{document.fullscreenElement?document.exitFullscreen():(d.requestFullscreen||d.webkitRequestFullscreen||(()=>msg('Pantalla completa no disponible aquí')) ).call(d)}catch(e){}};
+setQ(hi);requestAnimationFrame(loop);
+
+// Sistema de salas online y voz (PeerJS / WebRTC)
+let peer=null,isHost=false,online=false,myIndex=0,hostId=null,connections=new Map(),voiceStream=null,voiceCalls=new Map();
+const roomStatus=$('#roomStatus');
+function roomMsg(t){roomStatus.textContent=t}
+function snapshot(){return {type:'state',started:$('#setup').style.display==='none',players:P.map(p=>({i:p.i,m:p.m,pos:p.pos,skip:p.skip||0,bonus:p.bonus||false})),cur,owner,lvl,turn:cur}}
+function sendAll(data){for(const c of connections.values())if(c.open)c.send(data)}
+function applyState(d){
+ if(!d||!d.players)return;
+ P=d.players.map(x=>{let p=P.find(y=>y.i===x.i);if(!p)p={i:x.i,m:x.m,pos:x.pos,g:mkPawn(x.i)};p.m=x.m;p.pos=x.pos;p.skip=x.skip||0;p.bonus=x.bonus||false;if(p.g)p.g.position.copy(pos(p.pos)).add(off(p.i));return p});
+ cur=d.cur||0;owner=d.owner||{};lvl=d.lvl||{};hud();
+ if(d.started){$('#setup').style.display='none';busy=false;$('#roll').disabled=cur!==myIndex}
+ msg(cur===myIndex?'¡Es tu turno!':'Turno de '+(P[cur]?NM[P[cur].i]:'otro jugador'));
+}
+function publish(){if(isHost)sendAll(snapshot())}
+$('#createRoom').onclick=()=>{
+ if(!window.Peer){roomMsg('No se pudo cargar el servicio de conexión. Revisa tu internet.');return}
+ np=1;peer=new Peer();
+ peer.on('call',call=>{call.answer(voiceStream||undefined);call.on('stream',attachAudio)});peer.on('open',id=>{isHost=true;online=true;hostId=id;$('#roomCode').value=id;$('#copyInvite').disabled=false;roomMsg('Sala creada. Código: '+id+'. Comparte la invitación con tus amigos.')});
+ peer.on('connection',conn=>{
+  if(P.length>=6){conn.on('open',()=>conn.send({type:'full'}));return}
+  conn.on('open',()=>{const idx=P.length;P.push({i:idx,m:150,pos:0,g:mkPawn(idx)});connections.set(conn.peer,conn);conn.send({type:'welcome',index:idx,host:peer.id,state:snapshot()});hud();roomMsg(`${P.length} jugadores conectados.`);publish()});
+  conn.on('data',d=>{if(d.type==='roll'&&d.index===cur&&!busy){playOnlineHost()}});
+  conn.on('close',()=>{connections.delete(conn.peer);roomMsg('Un jugador se desconectó.')});
+ });
+ peer.on('error',e=>roomMsg('Error de sala: '+e.type));
+};
+$('#copyInvite').onclick=async()=>{
+ const url=location.href.split('#')[0]+'#sala='+encodeURIComponent(peer.id);
+ try{await navigator.clipboard.writeText(url);roomMsg('¡Enlace copiado! Envíalo por WhatsApp a tus amigos.')}catch(e){roomMsg('Comparte este código: '+peer.id)}
+};
+$('#joinRoom').onclick=()=>{
+ const id=$('#roomCode').value.trim()||decodeURIComponent((location.hash.split('sala=')[1]||'').split('&')[0]);
+ if(!id){roomMsg('Escribe el código de la sala.');return}
+ if(!window.Peer){roomMsg('No se pudo cargar el servicio de conexión.');return}
+ peer=new Peer();peer.on('call',call=>{call.answer(voiceStream||undefined);call.on('stream',attachAudio)});peer.on('open',()=>{const conn=peer.connect(id);conn.on('open',()=>{online=true;isHost=false;hostId=id;connections.set(id,conn);roomMsg('Conectado. Esperando que el anfitrión inicie la partida…');$('#micBtn').disabled=false});
+ conn.on('data',d=>{
+  if(d.type==='full'){roomMsg('La sala está llena (máximo 6).');return}
+  if(d.type==='welcome'){myIndex=d.index;hostId=d.host;applyState(d.state);$('#micBtn').disabled=false}
+  if(d.type==='state')applyState(d);
+  if(d.type==='start')applyState(d.state);
+ });
+ conn.on('close',()=>roomMsg('Se perdió la conexión con el anfitrión.'));
+ });peer.on('error',e=>roomMsg('No se pudo entrar: '+e.type));
+};
+async function playOnlineHost(){await play();publish();sendAll({type:'state',...snapshot()})}
+const localPlay=play;
+play=function(){if(online&&!isHost){const c=connections.get(hostId);if(c&&c.open)c.send({type:'roll',index:myIndex});return}return localPlay()};
+const oldGo=$('#go').onclick;
+$('#go').onclick=()=>{
+ if(online&&!isHost)return;
+ oldGo();if(isHost){publish();sendAll({type:'start',state:snapshot()})}
+};
+$('#roll').onclick=()=>{if(online&&!isHost){const c=connections.get(hostId);if(c&&c.open)c.send({type:'roll',index:myIndex});return}if(online&&isHost&&cur!==0)return;play()};
+function attachAudio(stream){const a=document.createElement('audio');a.autoplay=true;a.playsInline=true;a.srcObject=stream;document.body.appendChild(a)}
+$('#micBtn').onclick=async()=>{
+ try{
+  if(!voiceStream){voiceStream=await navigator.mediaDevices.getUserMedia({audio:true});$('#micBtn').textContent='🔇 Silenciar micrófono';$('#voiceStatus').textContent='Voz: micrófono activo';
+   if(!isHost&&peer&&hostId){const call=peer.call(hostId,voiceStream);call.on('stream',attachAudio);voiceCalls.set(hostId,call)}
+   if(isHost){for(const id of connections.keys()){const call=peer.call(id,voiceStream);call.on('stream',attachAudio);voiceCalls.set(id,call)}}
+  }else{voiceStream.getAudioTracks().forEach(t=>t.enabled=!t.enabled);const on=voiceStream.getAudioTracks().some(t=>t.enabled);$('#micBtn').textContent=on?'🔇 Silenciar micrófono':'🎙️ Activar micrófono';$('#voiceStatus').textContent=on?'Voz: micrófono activo':'Voz: silenciado'}
+ }catch(e){$('#voiceStatus').textContent='Permite el acceso al micrófono en tu navegador.'}
+};
+if(window.Peer){/* PeerJS disponible */}
+</script></body></html>
