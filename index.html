@@ -473,33 +473,46 @@ async function rollDice(v){
   dice.position.copy(DP);
 }
 
+/* ============ COLA DE ANIMACIONES (cliente) ============ */
+let animQ=[],animBusy=false;
+function enqueueAnim(fn){animQ.push(fn);if(!animBusy)runAnimQ()}
+async function runAnimQ(){
+  animBusy=true;
+  while(animQ.length){const f=animQ.shift();try{await f()}catch(e){}}
+  animBusy=false;
+}
+
 /* ============ MOVIMIENTOS ============ */
 async function hop(i,n){
   const g=pawns[i];if(!g)return;
+  g.userData.anim=true;
   const a=g.position.clone(),b=pos(n).add(off(i));
   snd(420,.08,'sine',.06);
   await tw(230,k=>{g.position.lerpVectors(a,b,k);g.position.y+=Math.sin(k*Math.PI)*.35});
-  g.position.copy(b);
+  g.position.copy(b);g.userData.anim=false;
 }
 async function climb(i,n){
   const g=pawns[i];if(!g)return;
+  g.userData.anim=true;
   const a=g.position.clone(),b=pos(n).add(off(i));
   snd(520,.5,'triangle');
   await tw(1400,k=>{g.position.lerpVectors(a,b,k);g.position.y+=Math.sin(k*Math.PI)*.9+Math.abs(Math.sin(k*30))*.06});
-  g.position.copy(b);
+  g.position.copy(b);g.userData.anim=false;
 }
 async function slide(i,n){
   const g=pawns[i];if(!g)return;
+  g.userData.anim=true;
   const a=g.position.clone(),b=pos(n).add(off(i));
   snd(300,.7,'sawtooth',.05);
   await tw(1400,k=>{g.position.lerpVectors(a,b,k*k*(3-2*k));g.position.x+=Math.sin(k*14)*.12*(1-k);g.rotation.z=Math.sin(k*18)*.5});
-  g.rotation.z=0;g.position.copy(b);
+  g.rotation.z=0;g.position.copy(b);g.userData.anim=false;
 }
 async function moveTo(p,target){
   const i=G.players.indexOf(p),g=pawns[i];if(!g)return;
+  g.userData.anim=true;
   const a=g.position.clone(),b=pos(target).add(off(i));
   await tw(750,k=>{g.position.lerpVectors(a,b,k);g.position.y+=Math.sin(k*Math.PI)*.6});
-  g.position.copy(b);p.pos=target;
+  g.position.copy(b);p.pos=target;g.userData.anim=false;
 }
 
 /* ============ CARTAS ============ */
@@ -729,6 +742,12 @@ function onClientData(d){
   }
   if(d.t==='state')applyState(d.s);
   if(d.t==='dice')rollDice(d.v);
+  if(d.t==='anim'){
+    if(d.k==='hop')enqueueAnim(()=>hop(d.p,d.n));
+    else if(d.k==='climb')enqueueAnim(()=>climb(d.p,d.n));
+    else if(d.k==='slide')enqueueAnim(()=>slide(d.p,d.n));
+    else if(d.k==='move')enqueueAnim(()=>moveTo(G.players[d.p],d.n));
+  }
   if(d.t==='card')showCard(d.title,d.text,d.icon);
   if(d.t==='ask')showAsk(d.text,d.opts,v=>{if(net.conn&&net.conn.open)net.conn.send({t:'choice',v})});
   if(d.t==='peers'){
@@ -744,7 +763,7 @@ function applyState(s){
   G.players.forEach((p,i)=>{
     if(pawns[i]){
       const t=pos(p.pos).add(off(i));
-      if(pawns[i].position.distanceTo(t)>.05)pawns[i].userData.target=t;
+      if(!pawns[i].userData.anim&&animQ.length===0&&pawns[i].position.distanceTo(t)>.05)pawns[i].userData.target=t;
     }
   });
   renderHUD();updBtn();
@@ -826,15 +845,18 @@ async function play(){
   for(let s=0;s<v;s++){
     if(n===100)dir=-1;
     n+=dir;
+    bcast({t:'anim',k:'hop',p:G.cur,n});
     await hop(G.cur,n);
   }
   p.pos=n;sync();
 
   if(LD[n]){
     msg(`¡Escalera! ${p.name} sube a la ${LD[n]}`);
+    bcast({t:'anim',k:'climb',p:G.cur,n:LD[n]});
     await climb(G.cur,LD[n]);n=p.pos=LD[n];pay(p,20);
   }else if(SN[n]){
     msg(`¡Serpiente! ${p.name} baja a la ${SN[n]}`);
+    bcast({t:'anim',k:'slide',p:G.cur,n:SN[n]});
     await slide(G.cur,SN[n]);n=p.pos=SN[n];pay(p,-10);
   }else if(CARD_TILES.has(n)){
     const c=CARDS[Math.random()*CARDS.length|0];
@@ -925,7 +947,7 @@ function loop(t){
 
   if(net.mode==='client'){
     pawns.forEach(g=>{
-      if(g.userData.target){
+      if(g.userData.target&&!g.userData.anim){
         g.position.lerp(g.userData.target,.14);
         if(g.position.distanceTo(g.userData.target)<.02){g.position.copy(g.userData.target);g.userData.target=null}
       }
