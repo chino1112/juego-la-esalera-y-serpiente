@@ -31,7 +31,7 @@ input:focus{border-color:var(--ac)}
 input::placeholder{color:rgba(255,255,255,.45)}
 .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center}
 .row button{padding:12px 20px}
-#np{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+#np{display:none;gap:8px;flex-wrap:wrap;justify-content:center}
 #np button{padding:10px 18px;background:linear-gradient(180deg,#3b4f8a,#2b3a68);color:var(--fg);box-shadow:0 3px 0 #1a2547}
 #np button.s{background:linear-gradient(180deg,#ffc247,#fca311);color:#14213d;box-shadow:0 3px 0 #b36f00}
 #plist{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:460px}
@@ -63,6 +63,7 @@ input::placeholder{color:rgba(255,255,255,.45)}
   <input id="pname" placeholder="Tu nombre" maxlength="12" value="">
   <div class="row"><button id="bLocal">📱 Jugar aquí</button><button id="bHost">🌐 Crear sala</button></div>
   <div class="row"><input id="code" placeholder="CÓDIGO" maxlength="5" style="width:130px;text-transform:uppercase"><button id="bJoin">Unirse</button></div>
+  <div id="np"></div>
   <p id="netmsg"></p>
   <p style="font-size:12px;opacity:.6">Arrastra para girar la cámara · pellizca o rueda para acercar</p>
 </div>
@@ -516,14 +517,21 @@ function announcePeers(){
   ids.forEach(id=>sendTo(id,{t:'peers',ids:ids.filter(x=>x!==id),host:net.peer.id}));
 }
 
+const PCFG={config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:global.stun.twilio.com:3478'}]}};
 function hostGame(){
+  if(typeof Peer==='undefined'){$('#netmsg').textContent='No se pudo cargar el servicio de salas. Revisa tu conexión a internet.';return}
   const name=($('#pname').value||'Anfitrión').slice(0,12);
   net.mode='host';net.room=randCode();
   $('#netmsg').textContent='Creando sala…';
-  net.peer=new Peer('sepgame-'+net.room,{debug:0});
+  net.peer=new Peer('sepgame-'+net.room,Object.assign({debug:0},PCFG));
   net.peer.on('open',()=>{
+    net.ready=true;
     G.players=[{name,color:0,coins:150,pos:0,peerId:null,skip:0}];
+    $('#lobby').querySelector('h1').innerHTML='Sala <span id="roomcode" style="color:#fca311"></span>';
     $('#roomcode').textContent=net.room;
+    $('#invite').style.display='';
+    $('#copy').style.display='';
+    $('#startBtn').style.display='';
     $('#invite').value=location.href.split('?')[0]+'?sala='+net.room;
     $('#setup').style.display='none';$('#lobby').style.display='flex';
     lobbySync();
@@ -542,6 +550,9 @@ function hostGame(){
     call.on('stream',s=>attachAudio(s,call.peer));
   });
   startVoice();
+  setTimeout(()=>{
+    if(!net.ready)$('#netmsg').textContent='No se pudo crear la sala. Revisa tu internet o usa «Jugar aquí» en este dispositivo.';
+  },10000);
 }
 function onHostData(conn,d){
   if(d.t==='join'){
@@ -577,14 +588,16 @@ function lobbySync(){
 }
 
 function joinGame(code){
+  if(typeof Peer==='undefined'){$('#netmsg').textContent='No se pudo cargar el servicio de salas. Revisa tu conexión a internet.';return}
   const name=($('#pname').value||'Jugador').slice(0,12);
   net.mode='client';net.room=code.toUpperCase();
   $('#netmsg').textContent='Conectando…';
-  net.peer=new Peer(null,{debug:0});
+  net.peer=new Peer(null,Object.assign({debug:0},PCFG));
   net.peer.on('open',()=>{
     const conn=net.peer.connect('sepgame-'+net.room,{reliable:true});
     net.conn=conn;
     conn.on('open',()=>{
+      net.ready=true;
       conn.send({t:'join',name});
       $('#netmsg').textContent='Conectado. Esperando al anfitrión…';
     });
@@ -600,6 +613,9 @@ function joinGame(code){
     call.on('stream',s=>attachAudio(s,call.peer));
   });
   startVoice();
+  setTimeout(()=>{
+    if(!net.ready)$('#netmsg').textContent='No se pudo conectar. Verifica el código y que el anfitrión tenga la sala abierta.';
+  },12000);
 }
 function onClientData(d){
   if(d.t==='full'){$('#netmsg').textContent='La sala está llena (máximo 6).';return}
@@ -837,6 +853,7 @@ $('#bLocal').onclick=()=>{
   $('#startBtn').style.display='none';
   $('#lobby').appendChild(npb);
   npb.style.display='flex';
+  $('#lobby').querySelector('h1').textContent='¿Cuántos juegan?';
   msg('Elige el número de jugadores');
 };
 $('#bHost').onclick=()=>{hostGame()};
@@ -878,5 +895,9 @@ addEventListener('beforeunload',()=>{if(net.mode==='client'&&net.conn)try{net.co
   }
 })();
 
+window.addEventListener('error',e=>{
+  const m=$('#netmsg');
+  if(m)m.textContent='Error: '+(e.message||'desconocido');
+});
 setQ(hi);fit();requestAnimationFrame(loop);
 </script></body></html>
