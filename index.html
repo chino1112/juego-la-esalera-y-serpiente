@@ -72,7 +72,8 @@ input::placeholder{color:rgba(255,255,255,.45)}
   <h1>Sala <span id="roomcode" style="color:#fca311"></span></h1>
   <p>Comparte este enlace con tus amigos. Todos entran desde su propio dispositivo.</p>
   <input id="invite" readonly>
-  <div class="row"><button id="copy">📋 Copiar enlace</button></div>
+  <div class="row"><button id="copy">📋 Copiar enlace</button><button id="copyCode">🔑 Copiar código</button></div>
+  <p id="shareNote" style="font-size:12px;opacity:.75;max-width:440px"></p>
   <div id="plist"></div>
   <button id="startBtn">Empezar partida</button>
   <p style="font-size:12px;opacity:.6">Activa el micrófono 🎤 para hablar en tiempo real</p>
@@ -517,12 +518,13 @@ function announcePeers(){
   ids.forEach(id=>sendTo(id,{t:'peers',ids:ids.filter(x=>x!==id),host:net.peer.id}));
 }
 
-const PCFG={config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:global.stun.twilio.com:3478'}]}};
+const PCFG={host:'0.peerjs.com',port:443,secure:true,path:'/',config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'},{urls:'stun:global.stun.twilio.com:3478'}]}};
 function hostGame(){
   if(typeof Peer==='undefined'){$('#netmsg').textContent='No se pudo cargar el servicio de salas. Revisa tu conexión a internet.';return}
   const name=($('#pname').value||'Anfitrión').slice(0,12);
   net.mode='host';net.room=randCode();
   $('#netmsg').textContent='Creando sala…';
+  if(net.peer){try{net.peer.destroy()}catch(e){}}
   net.peer=new Peer('sepgame-'+net.room,Object.assign({debug:0},PCFG));
   net.peer.on('open',()=>{
     net.ready=true;
@@ -532,13 +534,18 @@ function hostGame(){
     $('#invite').style.display='';
     $('#copy').style.display='';
     $('#startBtn').style.display='';
-    $('#invite').value=location.href.split('?')[0]+'?sala='+net.room;
+    shareInfo();
     $('#setup').style.display='none';$('#lobby').style.display='flex';
     lobbySync();
   });
+  net.peer.on('disconnected',()=>{try{net.peer.reconnect()}catch(e){}});
   net.peer.on('error',e=>{
-    $('#netmsg').textContent='Error de conexión: '+e.type+'. Revisa tu red.';
-    if(e.type==='unavailable-id'){$('#netmsg').textContent='Ese código ya existe. Intenta de nuevo.'}
+    if(e.type==='unavailable-id'){
+      $('#netmsg').textContent='Ese código ya está en uso. Creando otro…';
+      setTimeout(()=>hostGame(),800);
+    }else{
+      $('#netmsg').textContent='Error de conexión: '+e.type+'. Revisa tu red.';
+    }
   });
   net.peer.on('connection',conn=>{
     conn.on('open',()=>{conns.set(conn.peer,conn)});
@@ -582,16 +589,27 @@ function removePlayer(peerId){
   if(G.cur>=G.players.length)G.cur=0;
   if(net.mode==='host'){lobbySync();sync()}
 }
+function shareInfo(){
+  const isFile=location.protocol==='file:';
+  const link=location.href.split('?')[0]+'?sala='+net.room;
+  $('#invite').value=isFile?net.room:link;
+  $('#shareNote').textContent=isFile
+    ?'Estás abriendo el archivo desde tu dispositivo. El enlace no sirve para otras personas: comparte el CÓDIGO y que abran su propia copia del juego.'
+    :'Enlace listo. Tus amigos solo tienen que abrirlo y pulsar Unirse.';
+}
 function lobbySync(){
   $('#plist').innerHTML=G.players.map(p=>`<div class="pl"><span class="dot" style="background:${HX[p.color]}"></span>${p.name}</div>`).join('');
   bcast({t:'lobby',players:G.players.map(p=>({name:p.name,color:p.color}))});
 }
 
-function joinGame(code){
+function joinGame(code,attempt){
+  attempt=attempt||0;
   if(typeof Peer==='undefined'){$('#netmsg').textContent='No se pudo cargar el servicio de salas. Revisa tu conexión a internet.';return}
   const name=($('#pname').value||'Jugador').slice(0,12);
   net.mode='client';net.room=code.toUpperCase();
-  $('#netmsg').textContent='Conectando…';
+  $('#netmsg').textContent=attempt?`Buscando la sala… (intento ${attempt+1} de 5)`:'Conectando…';
+  if(net.peer){try{net.peer.destroy()}catch(e){}}
+  net.ready=false;
   net.peer=new Peer(null,Object.assign({debug:0},PCFG));
   net.peer.on('open',()=>{
     const conn=net.peer.connect('sepgame-'+net.room,{reliable:true});
@@ -602,19 +620,31 @@ function joinGame(code){
       $('#netmsg').textContent='Conectado. Esperando al anfitrión…';
     });
     conn.on('data',onClientData);
-    conn.on('close',()=>{$('#netmsg').textContent='Se perdió la conexión con la sala.'});
-    conn.on('error',()=>{$('#netmsg').textContent='No se pudo conectar. Verifica el código.'});
+    conn.on('close',()=>{if(net.ready)$('#netmsg').textContent='Se perdió la conexión con la sala.'});
+    conn.on('error',()=>{});
   });
   net.peer.on('error',e=>{
-    $('#netmsg').textContent='No se pudo conectar ('+e.type+'). Verifica el código.';
+    if(e.type==='peer-unavailable'){
+      if(attempt<4){
+        setTimeout(()=>joinGame(code,attempt+1),1600);
+      }else{
+        $('#netmsg').textContent='No se encontró la sala. Pide al anfitrión que deje la pestaña abierta y comprueba el código.';
+      }
+    }else if(e.type==='network'||e.type==='server-error'){
+      if(attempt<4)setTimeout(()=>joinGame(code,attempt+1),2000);
+      else $('#netmsg').textContent='El servicio de salas no responde. Prueba con otra red o usa el modo local.';
+    }else{
+      $('#netmsg').textContent='No se pudo conectar ('+e.type+').';
+    }
   });
+  net.peer.on('disconnected',()=>{try{net.peer.reconnect()}catch(e){}});
   net.peer.on('call',call=>{
     call.answer(micStream||undefined);
     call.on('stream',s=>attachAudio(s,call.peer));
   });
   startVoice();
   setTimeout(()=>{
-    if(!net.ready)$('#netmsg').textContent='No se pudo conectar. Verifica el código y que el anfitrión tenga la sala abierta.';
+    if(!net.ready&&attempt===0)$('#netmsg').textContent='Aún conectando… si tarda, revisa que el anfitrión siga en la sala.';
   },12000);
 }
 function onClientData(d){
@@ -622,7 +652,7 @@ function onClientData(d){
   if(d.t==='lobby'){
     $('#setup').style.display='none';$('#lobby').style.display='flex';
     $('#roomcode').textContent=net.room;
-    $('#invite').value=location.href.split('?')[0]+'?sala='+net.room;
+    shareInfo();
     $('#plist').innerHTML=d.players.map(p=>`<div class="pl"><span class="dot" style="background:${HX[p.color]}"></span>${p.name}</div>`).join('');
     $('#startBtn').style.display='none';
   }
@@ -863,6 +893,9 @@ $('#bJoin').onclick=()=>{
   joinGame(c);
 };
 $('#startBtn').onclick=()=>{if(net.mode==='host'){beginGame()}};
+$('#copyCode').onclick=async()=>{
+  try{await navigator.clipboard.writeText(net.room||'');$('#copyCode').textContent='✅ Copiado';setTimeout(()=>$('#copyCode').textContent='🔑 Copiar código',1800)}catch(e){}
+};
 $('#copy').onclick=async()=>{
   try{await navigator.clipboard.writeText($('#invite').value);$('#copy').textContent='✅ Copiado';setTimeout(()=>$('#copy').textContent='📋 Copiar enlace',1800)}catch(e){$('#invite').select()}
 };
@@ -884,6 +917,12 @@ $('#fs').onclick=()=>{
   const d=document.documentElement;
   try{document.fullscreenElement?document.exitFullscreen():(d.requestFullscreen||d.webkitRequestFullscreen||(()=>msg('Pantalla completa no disponible'))).call(d)}catch(e){}
 };
+setInterval(()=>{
+  if(net.peer&&net.peer.disconnected){try{net.peer.reconnect()}catch(e){}}
+},15000);
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden&&net.peer&&net.peer.disconnected){try{net.peer.reconnect()}catch(e){}}
+});
 addEventListener('beforeunload',()=>{if(net.mode==='client'&&net.conn)try{net.conn.send({t:'bye'})}catch(e){}});
 
 /* auto-unirse por enlace */
